@@ -1,40 +1,53 @@
-@description('Provide a location name')
-param locationName string 
+@description('The name of the logic app to create.')
+param logicAppName string
 
-@description('Provide a name for the storage account')
-param storageName string 
+@description('A test URI')
+param testUri string = 'https://status.azure.com/en-us/status/'
 
-resource virtualNetwork 'Microsoft.Network/virtualNetworks@2019-11-01' = {
-  name: 'exampleVnet'
-  location: locationName
-  properties: {
-    addressSpace: {
-      addressPrefixes: [
-        '10.0.0.0/16'
-      ]
-    }
-    subnets: [
-      {
-        name: 'Subnet-1'
-        properties: {
-          addressPrefix: '10.0.0.0/24'
-        }
-      }
-      {
-        name: 'Subnet-2'
-        properties: {
-          addressPrefix: '10.0.1.0/24'
-        }
-      }
-    ]
-  }
-}
+@description('Location for all resources.')
+param location string = resourceGroup().location
 
-resource exampleStorage 'Microsoft.Storage/storageAccounts@2021-08-01' = {
-	name: storageName
-	location: locationName
-	sku: {
-		name: 'Standard_GRS'
+var frequency = 'Hour'
+var interval = '1'
+var type = 'recurrence'
+var actionType = 'http'
+var method = 'GET'
+var workflowSchema = 'https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#'
+
+resource stg 'Microsoft.Logic/workflows@2019-05-01' = {
+	name: logicAppName
+	location: location
+	tags: {
+		displayName: logicAppName
 	}
-	kind: 'BlobStorage'
+	properties: {
+		definition: {
+			'$schema': workflowSchema
+			contentVersion: '1.0.0.0'
+			parameters: {
+				testUri: {
+					type: 'string'
+					defaultValue: testUri
+				}
+			}
+			triggers: {
+				recurrence: {
+					type: type
+					recurrence: {
+						frequency: frequency
+						interval: interval
+					}
+				}
+			}
+			actions: {
+				actionType: {
+					type: actionType
+					inputs: {
+						method: method
+						uri: testUri
+					}
+				}
+			}
+		}
+	}
 }
