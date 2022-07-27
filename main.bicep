@@ -1,53 +1,34 @@
-@description('The name of the logic app to create.')
-param logicAppName string
-
-@description('A test URI')
-param testUri string = 'https://status.azure.com/en-us/status/'
-
-@description('Location for all resources.')
 param location string = resourceGroup().location
+param storageAccountName string = 'toylaunch${uniqueString(resourceGroup().id)}'
+param appServiceAppName string = 'toylaunch${uniqueString(resourceGroup().id)}'
 
-var frequency = 'Hour'
-var interval = '1'
-var type = 'recurrence'
-var actionType = 'http'
-var method = 'GET'
-var workflowSchema = 'https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#'
+@allowed([
+	'test'
+	'prod'
+])
+param environmentType string
 
-resource stg 'Microsoft.Logic/workflows@2019-05-01' = {
-	name: logicAppName
+var storageAccountSkuName = (environmentType == 'prod') ? 'Standard_GRS' : 'Standard_LRS'
+
+resource storageAccount 'Microsoft.Storage/storageAccounts@2021-09-01' = {
+	name: storageAccountName
 	location: location
-	tags: {
-		displayName: logicAppName
+	sku: {
+		name: storageAccountSkuName
 	}
+	kind: 'StorageV2'
 	properties: {
-		definition: {
-			'$schema': workflowSchema
-			contentVersion: '1.0.0.0'
-			parameters: {
-				testUri: {
-					type: 'string'
-					defaultValue: testUri
-				}
-			}
-			triggers: {
-				recurrence: {
-					type: type
-					recurrence: {
-						frequency: frequency
-						interval: interval
-					}
-				}
-			}
-			actions: {
-				actionType: {
-					type: actionType
-					inputs: {
-						method: method
-						uri: testUri
-					}
-				}
-			}
-		}
+		accessTier: 'Hot'
 	}
 }
+
+module appService 'modules/appService.bicep' = {
+	name: 'appService'
+	params: {
+		appServiceAppName: appServiceAppName
+		environmentType: environmentType
+		location: location
+	}
+}
+
+output appServiceAppHostName string = appService.outputs.appServiceAppHostName
